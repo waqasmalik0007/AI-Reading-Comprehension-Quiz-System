@@ -37,7 +37,11 @@ def generate_html():
     font-size: 11pt;
   }
 
-  @page { margin: 2cm; size: A4; }
+  @page { margin: 2cm; size: A4; margin-top: 1.5cm; margin-bottom: 1.5cm; }
+  @media print {
+    @page { margin: 1.5cm; }
+    body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
 
   /* ── COVER PAGE ── */
   .cover-page {
