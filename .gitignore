@@ -1,0 +1,47 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+
+# Virtual environments
+venv/
+env/
+.venv/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Data (large files — download via pipeline)
+data/raw/*.csv
+data/processed/*.pkl
+data/processed/*.csv
+
+# Trained models (large — retrain via pipeline)
+models/**/*.pkl
+
+# Jupyter checkpoints
+.ipynb_checkpoints/
+
+# Extracted text files
+*.txt
+!requirements.txt
+!README.md
+
+# PDF source docs
+*.pdf
+
+# Misc
+*.log
+.env
