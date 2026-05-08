@@ -41,7 +41,35 @@ from src.preprocessing import load_processed_data, load_raw_data, clean_text
 # Directories
 MODELS_DIR = os.path.join(os.path.dirname(__file__), '..', 'models', 'model_a', 'traditional')
 DATA_PROC_DIR = os.path.join(os.path.dirname(__file__), '..', 'data', 'processed')
+CHECKPOINT_DIR = os.path.join(os.path.dirname(__file__), '..', 'models', 'model_a', 'checkpoints')
 os.makedirs(MODELS_DIR, exist_ok=True)
+os.makedirs(CHECKPOINT_DIR, exist_ok=True)
+
+
+def save_checkpoint(name, model, metadata=None, scaler=None):
+    """Save a model checkpoint with optional metadata and scaler."""
+    safe_name = name.lower().replace(' ', '_').replace('(', '').replace(')', '')
+    ckpt = {
+        'model': model,
+        'scaler': scaler,
+        'metadata': metadata or {},
+        'timestamp': time.strftime('%Y-%m-%d %H:%M:%S'),
+    }
+    path = os.path.join(CHECKPOINT_DIR, f'ckpt_{safe_name}.pkl')
+    joblib.dump(ckpt, path)
+    print(f"  [Checkpoint] Saved: {path}")
+    return path
+
+
+def load_checkpoint(name):
+    """Load a previously saved checkpoint. Returns (model, scaler, metadata) or None."""
+    safe_name = name.lower().replace(' ', '_').replace('(', '').replace(')', '')
+    path = os.path.join(CHECKPOINT_DIR, f'ckpt_{safe_name}.pkl')
+    if os.path.exists(path):
+        ckpt = joblib.load(path)
+        print(f"  [Checkpoint] Loaded: {path} (saved {ckpt.get('timestamp', 'unknown')})")
+        return ckpt['model'], ckpt.get('scaler'), ckpt.get('metadata', {})
+    return None, None, None
 
 
 def load_features():
@@ -97,6 +125,7 @@ def train_logistic_regression(X_train, y_train, X_val, y_val):
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'logistic_regression.pkl'))
     joblib.dump(scaler, os.path.join(MODELS_DIR, 'lr_scaler.pkl'))
+    save_checkpoint('logistic_regression', model, metadata=metrics, scaler=scaler)
     print(f"  Train time: {train_time:.2f}s")
 
     return model, scaler, metrics
@@ -124,6 +153,7 @@ def train_svm(X_train, y_train, X_val, y_val):
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'svm.pkl'))
     joblib.dump(scaler, os.path.join(MODELS_DIR, 'svm_scaler.pkl'))
+    save_checkpoint('svm', model, metadata=metrics, scaler=scaler)
     print(f"  Train time: {train_time:.2f}s")
 
     return model, scaler, metrics
@@ -178,6 +208,7 @@ def train_naive_bayes_question_type(train_df, val_df, count_vec):
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'naive_bayes_qtype.pkl'))
     joblib.dump(le, os.path.join(MODELS_DIR, 'nb_label_encoder.pkl'))
+    save_checkpoint('naive_bayes_qtype', model, metadata=metrics)
 
     return model, le, metrics
 
@@ -233,6 +264,7 @@ def train_random_forest_difficulty(train_df, val_df, tfidf_vec):
     print(f"  Feature importances:\n{importances.sort_values(ascending=False).to_string()}")
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'random_forest_difficulty.pkl'))
+    save_checkpoint('random_forest_difficulty', model, metadata=metrics)
 
     return model, metrics
 
@@ -258,6 +290,7 @@ def train_xgboost(X_train, y_train, X_val, y_val):
     print(f"  Train time: {train_time:.2f}s")
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'xgboost.pkl'))
+    save_checkpoint('xgboost', model, metadata=metrics)
 
     return model, metrics
 
@@ -300,6 +333,7 @@ def train_kmeans(X_train, y_train, n_clusters=2):
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'kmeans.pkl'))
     joblib.dump(scaler, os.path.join(MODELS_DIR, 'kmeans_scaler.pkl'))
+    save_checkpoint('kmeans', model, metadata={'silhouette': sil_score}, scaler=scaler)
 
     return model, {'silhouette': sil_score, 'purity': purity, 'train_time': train_time}
 
@@ -336,6 +370,7 @@ def train_gmm(X_train, y_train, n_components=2):
     print(f"  Train time: {train_time:.2f}s")
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'gmm.pkl'))
+    save_checkpoint('gmm', model, metadata={'silhouette': sil_score})
 
     return model, {'silhouette': sil_score, 'purity': purity, 'train_time': train_time}
 
@@ -377,6 +412,7 @@ def train_label_propagation(X_train, y_train, X_val, y_val, labeled_fraction=0.1
     print(f"  Train time: {train_time:.2f}s")
 
     joblib.dump(model, os.path.join(MODELS_DIR, 'label_propagation.pkl'))
+    save_checkpoint('label_propagation', model, metadata=metrics)
 
     return model, metrics
 
@@ -462,6 +498,7 @@ def train_ensemble(X_train, y_train, X_val, y_val):
 
     joblib.dump(ensemble, os.path.join(MODELS_DIR, 'ensemble_voting.pkl'))
     joblib.dump(scaler, os.path.join(MODELS_DIR, 'ensemble_scaler.pkl'))
+    save_checkpoint('ensemble_voting', ensemble, metadata=metrics, scaler=scaler)
 
     return ensemble, scaler, metrics
 
@@ -494,6 +531,7 @@ def train_stacking_ensemble(X_train, y_train, X_val, y_val):
     print(f"  Train time: {train_time:.2f}s")
 
     joblib.dump(stacking, os.path.join(MODELS_DIR, 'stacking_ensemble.pkl'))
+    save_checkpoint('stacking_ensemble', stacking, metadata=metrics)
 
     return stacking, metrics
 
