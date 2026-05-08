@@ -11,3 +11,6 @@ sentence-transformers==5.4.1
 datasets==4.8.5
 torch==2.11.0
 transformers==5.7.0
+rouge-score==0.1.2
+nltk==3.9.4
+kaggle==2.1.2
