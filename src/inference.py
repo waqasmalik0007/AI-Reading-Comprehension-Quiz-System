@@ -201,6 +201,84 @@ class InferenceEngine:
         latency = time.time() - start_time
         return questions, latency
 
+    def _extract_key_answer(self, article):
+        """
+        Extract a meaningful key phrase from the article to use as the correct answer.
+        Prefers named entities (capitalized phrases), numbers, or important nouns.
+        Avoids returning the full first sentence.
+        """
+        import re
+
+        STOPWORDS = {
+            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been', 'being',
+            'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would', 'could',
+            'should', 'may', 'might', 'shall', 'can', 'to', 'of', 'in', 'on',
+            'at', 'by', 'for', 'with', 'about', 'from', 'as', 'into', 'through',
+            'he', 'she', 'it', 'they', 'we', 'i', 'you', 'his', 'her', 'its',
+            'their', 'our', 'and', 'but', 'or', 'so', 'yet', 'both', 'either',
+            'not', 'that', 'this', 'these', 'those', 'which', 'who', 'whom',
+        }
+
+        sentences = re.split(r'[.!?]+', article)
+        sentences = [s.strip() for s in sentences if len(s.strip()) > 15]
+
+        # Priority 1: numbers with context (e.g. "thirty hours", "age of seventeen")
+        num_match = re.search(
+            r'\b(age of \w+|\w+ hours?|\w+ years?|\w+ percent|\w+ million|\w+ thousand|'
+            r'\d+[\w\s]{0,10})\b', article, re.IGNORECASE
+        )
+        if num_match:
+            phrase = num_match.group(0).strip()
+            if len(phrase) > 3 and phrase.lower() not in STOPWORDS:
+                return phrase, sentences[0] if sentences else article
+
+        # Priority 2: capitalized proper nouns (2-3 words)
+        proper_nouns = re.findall(r'\b([A-Z][a-z]+ (?:[A-Z][a-z]+ )?[A-Z][a-z]+)\b', article)
+        if proper_nouns:
+            candidate = proper_nouns[0]
+            if len(candidate.split()) >= 2:
+                return candidate, sentences[0] if sentences else article
+
+        # Priority 3: single capitalized name (not at sentence start)
+        for sent in sentences:
+            words = sent.split()
+            for i, w in enumerate(words[1:], 1):  # skip first word (always capitalized)
+                if w[0].isupper() and len(w) > 3 and w.lower() not in STOPWORDS:
+                    return w, sent
+
+        # Fallback: first meaningful noun phrase (3-5 words) from first sentence
+        if sentences:
+            words = [w for w in sentences[0].split() if w.lower() not in STOPWORDS and len(w) > 3]
+            if words:
+                return ' '.join(words[:3]), sentences[0]
+
+        return article.split('.')[0][:60].strip(), sentences[0] if sentences else article
+
+    def _build_question(self, key_answer, source_sentence, article):
+        """Build a natural question from the key answer and its source sentence."""
+        import re
+
+        s = source_sentence.strip()
+
+        # Detect if answer is a number/age/duration
+        if re.search(r'\d|years?|hours?|percent|million|age', key_answer, re.IGNORECASE):
+            q = re.sub(re.escape(key_answer), '________', s, flags=re.IGNORECASE, count=1)
+            if q != s:
+                return f"Fill in the blank: {q}"
+            return f"How much or how many? '{key_answer}' is mentioned in the passage — what does it refer to?"
+
+        # Detect if answer is a person/proper noun
+        if key_answer[0].isupper() and len(key_answer.split()) >= 2:
+            q = re.sub(re.escape(key_answer), 'who', s, flags=re.IGNORECASE, count=1)
+            return f"Who is referred to as '{key_answer}' in the passage?"
+
+        # Default — cloze style
+        q = re.sub(re.escape(key_answer), '________', s, flags=re.IGNORECASE, count=1)
+        if q != s:
+            return f"Fill in the blank: {q}"
+
+        return f"According to the passage, what is '{key_answer}'?"
+
     def full_inference(self, article, question=None, options=None):
         """
         Run full inference pipeline:
@@ -209,41 +287,84 @@ class InferenceEngine:
           3. Verify/rank all options
           4. Generate hints
         """
+        import re
         result = {'latencies': {}}
 
-        # Use provided or generate
+        STOPWORDS = {
+            'the', 'a', 'an', 'is', 'are', 'was', 'were', 'be', 'been',
+            'have', 'has', 'had', 'do', 'does', 'did', 'will', 'would',
+            'he', 'she', 'it', 'they', 'we', 'his', 'her', 'its', 'their',
+            'and', 'but', 'or', 'so', 'not', 'that', 'this', 'with', 'for',
+            'of', 'in', 'on', 'at', 'to', 'by', 'as', 'from', 'also',
+        }
+
+        # ── Step 1: Question generation ──
         if question is None:
-            # Need a correct answer for generation — use first sentence heuristic
-            questions, q_lat = self.generate_questions(article, article.split('.')[0])
-            result['latencies']['question_gen'] = q_lat
-            if questions:
-                question = questions[0]['question']
-                result['generated_question'] = question
-            else:
-                question = "What is the main idea of this passage?"
-                result['generated_question'] = question
+            start_q = time.time()
+            key_answer, source_sent = self._extract_key_answer(article)
+            question = self._build_question(key_answer, source_sent, article)
+            result['latencies']['question_gen'] = time.time() - start_q
+            result['generated_question'] = question
+            result['_key_answer'] = key_answer
+        else:
+            key_answer = article.split('.')[0][:60].strip()
 
         result['question'] = question
 
+        # ── Step 2: Distractor generation ──
         if options is None:
-            # Generate distractors (use first sentence as "correct answer" placeholder)
-            correct_text = article.split('.')[0].strip()
+            correct_text = result.get('_key_answer', key_answer)
             distractors, d_lat = self.generate_distractors(article, question, correct_text)
             result['latencies']['distractor_gen'] = d_lat
+
+            # Filter stopwords and too-short distractors
+            distractors = [
+                d for d in distractors
+                if len(d.split()) >= 2 and d.lower().strip() not in STOPWORDS
+                and len(d.strip()) > 4
+            ]
+
+            # If not enough good distractors, extract noun phrases from article
+            if len(distractors) < 3:
+                noun_phrases = re.findall(
+                    r'\b([A-Z][a-z]+(?: [A-Z][a-z]+)+|'
+                    r'\w+ (?:University|Institute|City|Street|Park|Hospital|School))\b',
+                    article
+                )
+                extras = [np for np in noun_phrases if np.lower() != correct_text.lower()]
+                # Also extract number-based phrases
+                num_phrases = re.findall(
+                    r'\b(?:age of \w+|\d+ \w+|twenty|thirty|forty|fifty|sixty|'
+                    r'hundred|thousand|million)\b', article, re.IGNORECASE
+                )
+                extras += [n for n in num_phrases if n.lower() != correct_text.lower()]
+                distractors += extras[:3 - len(distractors)]
+
             options = {'A': correct_text}
             for i, d in enumerate(distractors[:3]):
-                options[chr(66 + i)] = d  # B, C, D
+                options[chr(66 + i)] = d
+            # Fill missing options with passage sentences
+            sent_list = [s.strip() for s in article.split('.') if len(s.strip()) > 10]
+            idx = 0
+            for letter in ['B', 'C', 'D']:
+                if letter not in options:
+                    while idx < len(sent_list):
+                        candidate = ' '.join(sent_list[idx].split()[:6])
+                        idx += 1
+                        if candidate.lower() != correct_text.lower() and len(candidate) > 5:
+                            options[letter] = candidate
+                            break
             result['generated_options'] = options
 
         result['options'] = options
 
-        # Rank options
+        # ── Step 3: Rank options ──
         ranked, rank_lat = self.rank_all_options(article, question, options)
         result['ranked_options'] = ranked
         result['predicted_answer'] = ranked[0][0]
         result['latencies']['ranking'] = rank_lat
 
-        # Generate hints
+        # ── Step 4: Hints ──
         hints, h_lat = self.generate_hints(article, question)
         result['hints'] = hints
         result['latencies']['hints'] = h_lat
