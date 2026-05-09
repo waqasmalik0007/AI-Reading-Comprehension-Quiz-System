@@ -318,11 +318,24 @@ class InferenceEngine:
             result['latencies']['distractor_gen'] = d_lat
 
             # Filter stopwords and too-short distractors
+            GENERIC_WORDS = {
+                'university', 'school', 'student', 'person', 'people', 'place',
+                'thing', 'time', 'year', 'month', 'day', 'way', 'part', 'point',
+                'work', 'life', 'hand', 'case', 'week', 'company', 'system',
+                'program', 'class', 'course', 'group', 'home', 'room', 'world',
+            }
+
             def _is_valid_distractor(d):
                 words = d.strip().split()
                 if len(words) < 1 or len(d.strip()) < 5:
                     return False
                 if d.lower().strip() in STOPWORDS:
+                    return False
+                # Reject single generic words
+                if len(words) == 1 and words[0].lower() in GENERIC_WORDS:
+                    return False
+                # Reject if starts with article (e.g. "a notorious", "the best")
+                if words[0].lower() in {'a', 'an', 'the'}:
                     return False
                 # Reject if last word is a stopword (e.g. "one of the")
                 if words[-1].lower() in STOPWORDS:
