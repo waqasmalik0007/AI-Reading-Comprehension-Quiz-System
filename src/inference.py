@@ -409,9 +409,22 @@ class InferenceEngine:
 
             type_distractors = _type_consistent_distractors(correct_text, article)
             if type_distractors:
-                distractors = type_distractors
-            else:
-                pass  # fall through to ML distractors below
+                # Type-consistent distractors are already good — skip the stopword filter
+                options = {'A': correct_text}
+                for i, d in enumerate(type_distractors[:3]):
+                    options[chr(66 + i)] = d
+                result['generated_options'] = options
+                result['_custom_correct'] = 'A'
+                result['options'] = options
+                ranked, rank_lat = self.rank_all_options(article, question, options)
+                result['ranked_options'] = ranked
+                result['predicted_answer'] = 'A'
+                result['latencies']['ranking'] = rank_lat
+                hints, h_lat = self.generate_hints(article, question)
+                result['hints'] = hints
+                result['latencies']['hints'] = h_lat
+                result['total_latency'] = sum(result['latencies'].values())
+                return result
 
             # Filter stopwords and too-short distractors
             GENERIC_WORDS = {
