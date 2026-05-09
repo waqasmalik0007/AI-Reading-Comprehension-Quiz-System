@@ -124,11 +124,28 @@ class InferenceEngine:
             'correct_text': result['options'].get('A', ''),
             '_is_custom': True,
         }
-        # Only return if genuinely different question
+        # Return if genuinely different question
         if new_sample['question'] != current_question:
             return new_sample
 
-        return self.get_random_sample()
+        # Same question — try once more with a broader exclusion list
+        broader_exclude = (used_answers or []) + [new_sample['correct_text']]
+        result2 = self.full_inference(current_article, exclude_answers=broader_exclude)
+        new_sample2 = {
+            'id': 'custom',
+            'article': current_article,
+            'question': result2['question'],
+            'options': result2['options'],
+            'correct_answer': 'A',
+            'correct_text': result2['options'].get('A', ''),
+            '_is_custom': True,
+        }
+        if new_sample2['question'] != current_question:
+            return new_sample2
+
+        # Still same — return new_sample (different options at minimum) rather than
+        # changing the article to a random one
+        return new_sample
 
     def verify_answer(self, article, question, selected_option_text):
         """
