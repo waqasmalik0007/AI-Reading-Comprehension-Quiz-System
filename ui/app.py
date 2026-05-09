@@ -341,8 +341,11 @@ elif page == '❓ Quiz View':
                                        disabled=selected is None)
 
         with col2:
-            if st.button('🔄 New Question', use_container_width=True):
-                new_sample = engine.get_random_sample()
+            if st.button('🔄 Next Question', use_container_width=True):
+                cur = st.session_state.current_sample
+                new_sample = engine.get_next_question_same_article(
+                    cur['article'], cur['question']
+                ) if cur else engine.get_random_sample()
                 if new_sample:
                     st.session_state.current_sample = new_sample
                     st.session_state.answer_checked = False
