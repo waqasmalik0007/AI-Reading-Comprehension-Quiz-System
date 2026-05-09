@@ -518,6 +518,27 @@ class InferenceEngine:
 
                 # Person name — single capitalized word not matched above
                 if re.match(r'^[A-Z][a-z]+$', answer) and len(answer) > 2:
+                    # Words that look capitalized but are NOT person names
+                    NON_NAME_CAPS = {
+                        'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday',
+                        'Saturday', 'Sunday', 'January', 'February', 'March',
+                        'April', 'May', 'June', 'July', 'August', 'September',
+                        'October', 'November', 'December', 'Pakistan', 'India',
+                        'America', 'Britain', 'University', 'College', 'Institute',
+                        'Lahore', 'Karachi', 'Islamabad', 'Peshawar', 'Quetta',
+                        'Multan', 'Faisalabad', 'Rawalpindi', 'London', 'Dubai',
+                    }
+                    # Step 1: extract other name-like capitalized words from article
+                    raw = re.findall(r'\b([A-Z][a-z]{2,})\b', article_text)
+                    from_article = list(dict.fromkeys(
+                        n for n in raw
+                        if n != answer
+                        and n not in NON_NAME_CAPS
+                        and not any(kw in n.lower() for kw in academic_kws)
+                    ))
+                    if len(from_article) >= 3:
+                        return from_article[:3]
+                    # Step 2: supplement with curated names similar in cultural context
                     PERSON_NAMES = [
                         'Ali', 'Ahmed', 'Hassan', 'Omar', 'Usman', 'Bilal',
                         'Tariq', 'Zaid', 'Hamza', 'Faisal', 'Imran', 'Asad',
@@ -525,9 +546,47 @@ class InferenceEngine:
                         'Hina', 'Zara', 'Alia', 'Rania', 'John', 'Michael',
                         'David', 'James', 'Emma', 'Sophia', 'Olivia', 'Amelia',
                     ]
-                    others = [n for n in PERSON_NAMES if n.lower() != answer.lower()]
-                    random.shuffle(others)
-                    return others[:3]
+                    extras = [n for n in PERSON_NAMES
+                              if n.lower() != answer.lower() and n not in from_article]
+                    random.shuffle(extras)
+                    return (from_article + extras)[:3]
+
+                # Generic fallback — extract same-structure phrases from article
+                # (same word count, same capitalization) so distractors are contextually plausible
+                ans_words = answer.split()
+                ans_len = len(ans_words)
+                if answer[0].isupper():
+                    if ans_len == 1:
+                        caps = re.findall(r'\b([A-Z][a-zA-Z]{3,})\b', article_text)
+                        candidates = list(dict.fromkeys(
+                            c for c in caps if c.lower() != answer.lower()
+                        ))
+                    else:
+                        word_pat = r'[A-Z][a-zA-Z]+'
+                        pat = r'\b(' + r'\s+'.join([word_pat] * ans_len) + r')\b'
+                        candidates = list(dict.fromkeys(
+                            c for c in re.findall(pat, article_text)
+                            if c.lower() != answer.lower()
+                        ))
+                    if len(candidates) >= 3:
+                        random.shuffle(candidates)
+                        return candidates[:3]
+                else:
+                    # Lowercase noun — find other lowercase words of similar length
+                    words_in_art = re.findall(r'\b([a-z]{4,})\b', article_text.lower())
+                    STOPWORDS_SET = {
+                        'that', 'this', 'with', 'from', 'have', 'been', 'were',
+                        'they', 'them', 'their', 'will', 'would', 'could', 'should',
+                        'when', 'where', 'which', 'what', 'also', 'into', 'over',
+                    }
+                    candidates = list(dict.fromkeys(
+                        w for w in words_in_art
+                        if w != answer.lower() and w not in STOPWORDS_SET
+                        and abs(len(w) - len(answer)) <= 3
+                    ))
+                    if len(candidates) >= 3:
+                        random.shuffle(candidates)
+                        return candidates[:3]
 
                 return []
 
