@@ -343,6 +343,76 @@ class InferenceEngine:
             distractors, d_lat = self.generate_distractors(article, question, correct_text)
             result['latencies']['distractor_gen'] = d_lat
 
+            # ── Type-consistent distractors ──
+            def _type_consistent_distractors(answer, article_text):
+                import random
+                answer = answer.strip()
+
+                # Year (4-digit number like 2019)
+                if re.match(r'^\d{4}$', answer):
+                    base = int(answer)
+                    offsets = [-3, -2, -1, 1, 2, 3]
+                    random.shuffle(offsets)
+                    return [str(base + o) for o in offsets[:3]]
+
+                # Pure number (e.g. "3", "40", "six", "forty")
+                word_numbers = {
+                    'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
+                    'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
+                    'eleven': 11, 'twelve': 12, 'fifteen': 15, 'twenty': 20,
+                    'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60,
+                    'hundred': 100, 'thousand': 1000,
+                }
+                num_words_rev = {v: k for k, v in word_numbers.items()}
+                if answer.lower() in word_numbers:
+                    base = word_numbers[answer.lower()]
+                    candidates = []
+                    for delta in [-2, -1, 1, 2, 3]:
+                        v = base + delta
+                        if v > 0:
+                            candidates.append(num_words_rev.get(v, str(v)))
+                    return candidates[:3]
+                if re.match(r'^\d+$', answer):
+                    base = int(answer)
+                    return [str(base + d) for d in [-2, 1, 3] if base + d > 0]
+
+                # Age phrase like "age of sixteen"
+                age_match = re.match(r'age of (\w+)', answer, re.IGNORECASE)
+                if age_match:
+                    word = age_match.group(1).lower()
+                    if word in word_numbers:
+                        base = word_numbers[word]
+                        alts = []
+                        for delta in [-2, -1, 1, 2]:
+                            v = base + delta
+                            if v > 0:
+                                alt_word = num_words_rev.get(v, str(v))
+                                alts.append(f'age of {alt_word}')
+                        return alts[:3]
+
+                # Duration phrase like "thirty hours", "six months"
+                dur_match = re.match(r'(\w+) (hours?|days?|months?|years?|weeks?|minutes?)', answer, re.IGNORECASE)
+                if dur_match:
+                    qty_word = dur_match.group(1).lower()
+                    unit = dur_match.group(2)
+                    if qty_word in word_numbers:
+                        base = word_numbers[qty_word]
+                        alts = []
+                        for delta in [-2, -1, 1, 2]:
+                            v = base + delta
+                            if v > 0:
+                                alt_word = num_words_rev.get(v, str(v))
+                                alts.append(f'{alt_word} {unit}')
+                        return alts[:3]
+
+                return []
+
+            type_distractors = _type_consistent_distractors(correct_text, article)
+            if type_distractors:
+                distractors = type_distractors
+            else:
+                pass  # fall through to ML distractors below
+
             # Filter stopwords and too-short distractors
             GENERIC_WORDS = {
                 'university', 'school', 'student', 'person', 'people', 'place',
