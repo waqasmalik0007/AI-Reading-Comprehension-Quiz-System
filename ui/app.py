@@ -198,6 +198,8 @@ if 'latencies' not in st.session_state:
     st.session_state.latencies = []
 if 'show_answer' not in st.session_state:
     st.session_state.show_answer = False
+if 'used_answers' not in st.session_state:
+    st.session_state.used_answers = []
 
 # ── Sidebar ───────────────────────────────────────────────────
 with st.sidebar:
@@ -343,10 +345,21 @@ elif page == '❓ Quiz View':
         with col2:
             if st.button('🔄 Next Question', use_container_width=True):
                 cur = st.session_state.current_sample
-                new_sample = engine.get_next_question_same_article(
-                    cur['article'], cur['question']
-                ) if cur else engine.get_random_sample()
+                if cur:
+                    # Track used answers so next question is different
+                    used = st.session_state.used_answers
+                    cur_ans = cur['options'].get(cur.get('correct_answer', 'A'), '')
+                    if cur_ans and cur_ans not in used:
+                        used.append(cur_ans)
+                    new_sample = engine.get_next_question_same_article(
+                        cur['article'], cur['question'], used_answers=used
+                    )
+                else:
+                    new_sample = engine.get_random_sample()
                 if new_sample:
+                    # Reset used_answers if article changed
+                    if cur and new_sample.get('article') != cur.get('article'):
+                        st.session_state.used_answers = []
                     st.session_state.current_sample = new_sample
                     st.session_state.answer_checked = False
                     st.session_state.hints_revealed = 0

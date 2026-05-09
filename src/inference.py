@@ -85,31 +85,50 @@ class InferenceEngine:
             'correct_text': sample[sample['answer']],
         }
 
-    def get_next_question_same_article(self, current_article, current_question):
-        """Get a different question from the same article. Falls back to new random sample."""
-        if not hasattr(self, 'test_df'):
-            return self.get_random_sample()
-        same_article = self.test_df[
-            (self.test_df['article'] == current_article) &
-            (self.test_df['question'] != current_question)
-        ]
-        if len(same_article) > 0:
-            sample = same_article.sample(1).iloc[0]
-        else:
-            return self.get_random_sample()
-        return {
-            'id': sample['id'],
-            'article': sample['article'],
-            'question': sample['question'],
-            'options': {
-                'A': sample['A'],
-                'B': sample['B'],
-                'C': sample['C'],
-                'D': sample['D'],
-            },
-            'correct_answer': sample['answer'],
-            'correct_text': sample[sample['answer']],
+    def get_next_question_same_article(self, current_article, current_question, used_answers=None):
+        """Get a different question from the same article.
+        For dataset samples: queries test_df for another row with same article.
+        For custom text: re-runs inference with a different key answer.
+        Falls back to new random sample only if nothing else is possible.
+        """
+        # Try dataset first
+        if hasattr(self, 'test_df'):
+            same_article = self.test_df[
+                (self.test_df['article'] == current_article) &
+                (self.test_df['question'] != current_question)
+            ]
+            if len(same_article) > 0:
+                sample = same_article.sample(1).iloc[0]
+                return {
+                    'id': sample['id'],
+                    'article': sample['article'],
+                    'question': sample['question'],
+                    'options': {
+                        'A': sample['A'],
+                        'B': sample['B'],
+                        'C': sample['C'],
+                        'D': sample['D'],
+                    },
+                    'correct_answer': sample['answer'],
+                    'correct_text': sample[sample['answer']],
+                }
+
+        # Custom text — generate a new question from same article with different answer
+        result = self.full_inference(current_article, exclude_answers=used_answers or [])
+        new_sample = {
+            'id': 'custom',
+            'article': current_article,
+            'question': result['question'],
+            'options': result['options'],
+            'correct_answer': result['predicted_answer'],
+            'correct_text': result['options'].get(result['predicted_answer'], ''),
+            '_is_custom': True,
         }
+        # Only return if genuinely different question
+        if new_sample['question'] != current_question:
+            return new_sample
+
+        return self.get_random_sample()
 
     def verify_answer(self, article, question, selected_option_text):
         """
@@ -201,7 +220,7 @@ class InferenceEngine:
         latency = time.time() - start_time
         return questions, latency
 
-    def _extract_key_answer(self, article):
+    def _extract_key_answer(self, article, exclude_answers=None):
         """
         Extract a meaningful key phrase from the article to use as the correct answer.
         Prefers named entities (capitalized phrases), numbers, or important nouns.
@@ -219,38 +238,45 @@ class InferenceEngine:
             'not', 'that', 'this', 'these', 'those', 'which', 'who', 'whom',
         }
 
+        exclude_set = {e.lower() for e in (exclude_answers or [])}
+
         sentences = re.split(r'[.!?]+', article)
         sentences = [s.strip() for s in sentences if len(s.strip()) > 15]
 
-        # Priority 1: numbers with context (e.g. "thirty hours", "age of seventeen")
-        num_match = re.search(
+        def _ok(phrase, src_sent):
+            return phrase.lower() not in STOPWORDS and phrase.lower() not in exclude_set and len(phrase) > 3
+
+        # Priority 1: all number phrases — pick first not excluded
+        num_matches = re.findall(
             r'\b(age of \w+|\w+ hours?|\w+ years?|\w+ percent|\w+ million|\w+ thousand|'
             r'\d+[\w\s]{0,10})\b', article, re.IGNORECASE
         )
-        if num_match:
-            phrase = num_match.group(0).strip()
-            if len(phrase) > 3 and phrase.lower() not in STOPWORDS:
-                return phrase, sentences[0] if sentences else article
+        for phrase in num_matches:
+            phrase = phrase.strip()
+            src = next((s for s in sentences if phrase.lower() in s.lower()), sentences[0] if sentences else article)
+            if _ok(phrase, src):
+                return phrase, src
 
-        # Priority 2: capitalized proper nouns (2-3 words)
+        # Priority 2: all capitalized proper nouns — pick first not excluded
         proper_nouns = re.findall(r'\b([A-Z][a-z]+ (?:[A-Z][a-z]+ )?[A-Z][a-z]+)\b', article)
-        if proper_nouns:
-            candidate = proper_nouns[0]
+        for candidate in proper_nouns:
             if len(candidate.split()) >= 2:
-                return candidate, sentences[0] if sentences else article
+                src = next((s for s in sentences if candidate in s), sentences[0] if sentences else article)
+                if _ok(candidate, src):
+                    return candidate, src
 
-        # Priority 3: single capitalized name (not at sentence start)
+        # Priority 3: single capitalized names (not at sentence start)
         for sent in sentences:
             words = sent.split()
-            for i, w in enumerate(words[1:], 1):  # skip first word (always capitalized)
-                if w[0].isupper() and len(w) > 3 and w.lower() not in STOPWORDS:
+            for w in words[1:]:
+                if w[0].isupper() and len(w) > 3 and w.lower() not in STOPWORDS and w.lower() not in exclude_set:
                     return w, sent
 
-        # Fallback: first meaningful noun phrase (3-5 words) from first sentence
-        if sentences:
-            words = [w for w in sentences[0].split() if w.lower() not in STOPWORDS and len(w) > 3]
+        # Fallback: meaningful words from different sentences
+        for sent in sentences:
+            words = [w for w in sent.split() if w.lower() not in STOPWORDS and len(w) > 4 and w.lower() not in exclude_set]
             if words:
-                return ' '.join(words[:3]), sentences[0]
+                return ' '.join(words[:3]), sent
 
         return article.split('.')[0][:60].strip(), sentences[0] if sentences else article
 
@@ -279,7 +305,7 @@ class InferenceEngine:
 
         return f"According to the passage, what is '{key_answer}'?"
 
-    def full_inference(self, article, question=None, options=None):
+    def full_inference(self, article, question=None, options=None, exclude_answers=None):
         """
         Run full inference pipeline:
           1. If no question provided, generate one
@@ -301,7 +327,7 @@ class InferenceEngine:
         # ── Step 1: Question generation ──
         if question is None:
             start_q = time.time()
-            key_answer, source_sent = self._extract_key_answer(article)
+            key_answer, source_sent = self._extract_key_answer(article, exclude_answers=exclude_answers)
             question = self._build_question(key_answer, source_sent, article)
             result['latencies']['question_gen'] = time.time() - start_q
             result['generated_question'] = question
