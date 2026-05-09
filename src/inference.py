@@ -516,9 +516,26 @@ class InferenceEngine:
                     random.shuffle(others)
                     return others[:3]
 
+                # Person name — single capitalized word not matched above
+                if re.match(r'^[A-Z][a-z]+$', answer) and len(answer) > 2:
+                    PERSON_NAMES = [
+                        'Ali', 'Ahmed', 'Hassan', 'Omar', 'Usman', 'Bilal',
+                        'Tariq', 'Zaid', 'Hamza', 'Faisal', 'Imran', 'Asad',
+                        'Sara', 'Fatima', 'Ayesha', 'Maryam', 'Sana', 'Nadia',
+                        'Hina', 'Zara', 'Alia', 'Rania', 'John', 'Michael',
+                        'David', 'James', 'Emma', 'Sophia', 'Olivia', 'Amelia',
+                    ]
+                    others = [n for n in PERSON_NAMES if n.lower() != answer.lower()]
+                    random.shuffle(others)
+                    return others[:3]
+
                 return []
 
             type_distractors = _type_consistent_distractors(correct_text, article)
+            # Remove any distractor that already appears in the question text
+            if type_distractors:
+                q_lower = question.lower()
+                type_distractors = [d for d in type_distractors if d.lower() not in q_lower]
             if type_distractors:
                 # Type-consistent distractors are already good — skip the stopword filter
                 options = {'A': correct_text}
