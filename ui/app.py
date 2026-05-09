@@ -288,13 +288,16 @@ if page == '📝 Article Input':
                     sample = st.session_state.current_sample
                 else:
                     result = engine.full_inference(article_text)
+                    correct_key = result.get('_custom_correct', result['predicted_answer'])
                     sample = {
                         'article': article_text,
                         'question': result['question'],
                         'options': result.get('generated_options', result['options']),
-                        'correct_answer': result['predicted_answer'],
-                        'correct_text': result['options'].get(result['predicted_answer'], ''),
+                        'correct_answer': correct_key,
+                        'correct_text': result['options'].get(correct_key, ''),
+                        '_is_custom': True,
                     }
+                    st.session_state.used_answers = []
 
                 st.session_state.current_sample = sample
                 st.session_state.answer_checked = False

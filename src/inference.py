@@ -120,8 +120,8 @@ class InferenceEngine:
             'article': current_article,
             'question': result['question'],
             'options': result['options'],
-            'correct_answer': result['predicted_answer'],
-            'correct_text': result['options'].get(result['predicted_answer'], ''),
+            'correct_answer': 'A',
+            'correct_text': result['options'].get('A', ''),
             '_is_custom': True,
         }
         # Only return if genuinely different question
@@ -405,13 +405,17 @@ class InferenceEngine:
                             options[letter] = candidate
                             break
             result['generated_options'] = options
+            # We extracted the answer ourselves — A is always correct for custom text
+            result['_custom_correct'] = 'A'
 
         result['options'] = options
 
         # ── Step 3: Rank options ──
         ranked, rank_lat = self.rank_all_options(article, question, options)
         result['ranked_options'] = ranked
-        result['predicted_answer'] = ranked[0][0]
+        # For custom text, correct answer is always A (we generated it)
+        # For dataset samples, use the ML ranker
+        result['predicted_answer'] = result.get('_custom_correct', ranked[0][0])
         result['latencies']['ranking'] = rank_lat
 
         # ── Step 4: Hints ──
