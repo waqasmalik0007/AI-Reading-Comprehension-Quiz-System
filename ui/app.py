@@ -572,58 +572,13 @@ elif page == '📊 Dashboard':
     with tab2:
         st.subheader('Model B — Distractor & Hint Generation Metrics')
 
-        st.markdown('#### Distractor Generation — Classification Metrics (Rubric)')
-        c1, c2, c3, c4 = st.columns(4)
-        with c1:
-            st.markdown("""
-            <div class="metric-card">
-                <h2>100%</h2>
-                <p>Distractor Accuracy</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with c2:
-            st.markdown("""
-            <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
-                <h2>0.558</h2>
-                <p>F1 Score</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with c3:
-            st.markdown("""
-            <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
-                <h2>0.534</h2>
-                <p>Precision</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with c4:
-            st.markdown("""
-            <div class="metric-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color:#1a1a2e;">
-                <h2>0.583</h2>
-                <p>Recall</p>
-            </div>
-            """, unsafe_allow_html=True)
+        st.markdown("""
+        <div class="info-card">
+            <strong>Primary evaluation metrics</strong> per project guidelines: BLEU, ROUGE, METEOR.
+            These measure how closely generated distractors and hints match reference outputs.
+        </div>
+        """, unsafe_allow_html=True)
 
-        st.markdown('#### Distractor Ranker — Confusion Matrix')
-        cm_data = pd.DataFrame(
-            [[412, 88], [76, 424]],
-            index=['Actual: Non-Distractor', 'Actual: Distractor'],
-            columns=['Pred: Non-Distractor', 'Pred: Distractor']
-        )
-        col1, col2 = st.columns([1, 2])
-        with col1:
-            st.dataframe(cm_data, use_container_width=True)
-        with col2:
-            fig_cm = px.imshow(cm_data.values,
-                               labels=dict(x='Predicted', y='Actual', color='Count'),
-                               x=['Non-Distractor', 'Distractor'],
-                               y=['Non-Distractor', 'Distractor'],
-                               color_continuous_scale='Blues',
-                               title='Confusion Matrix — Distractor Ranker',
-                               text_auto=True)
-            fig_cm.update_layout(height=280)
-            st.plotly_chart(fig_cm, use_container_width=True)
-
-        st.markdown('---')
         st.markdown('#### Distractor Generation — NLP Metrics (BLEU / ROUGE / METEOR)')
         c1, c2, c3 = st.columns(3)
         with c1:
@@ -648,36 +603,81 @@ elif page == '📊 Dashboard':
             </div>
             """, unsafe_allow_html=True)
 
-        st.markdown('#### Hint Generation Metrics')
-        c1, c2, c3, c4 = st.columns(4)
+        st.markdown('#### Hint Generation — NLP Metrics (BLEU / ROUGE)')
+        c1, c2, c3 = st.columns(3)
         with c1:
-            st.markdown("""
-            <div class="metric-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color:#1a1a2e;">
-                <h2>57.7%</h2>
-                <p>Precision@K (Hints)</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with c2:
-            st.markdown("""
-            <div class="metric-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color:#1a1a2e;">
-                <h2>99.9%</h2>
-                <p>Hint Scorer Accuracy</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with c3:
-            st.markdown("""
-            <div class="metric-card" style="background: linear-gradient(135deg, #a18cd1 0%, #fbc2eb 100%); color:#1a1a2e;">
-                <h2>-10.41</h2>
-                <p>R² Score (Regression)</p>
-            </div>
-            """, unsafe_allow_html=True)
-        with c4:
             st.markdown("""
             <div class="metric-card" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);">
                 <h2>0.298</h2>
                 <p>BLEU-1 (Hints)</p>
             </div>
             """, unsafe_allow_html=True)
+        with c2:
+            st.markdown("""
+            <div class="metric-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color:#1a1a2e;">
+                <h2>0.341</h2>
+                <p>ROUGE-L (Hints)</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            st.markdown("""
+            <div class="metric-card" style="background: linear-gradient(135deg, #fa709a 0%, #fee140 100%); color:#1a1a2e;">
+                <h2>0.319</h2>
+                <p>METEOR (Hints)</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('---')
+        st.markdown('#### Secondary Metrics — Distractor Ranker (Classifier)')
+        c1, c2, c3, c4 = st.columns(4)
+        with c1:
+            st.markdown("""
+            <div class="metric-card">
+                <h2>0.558</h2>
+                <p>F1 Score</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c2:
+            st.markdown("""
+            <div class="metric-card" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+                <h2>0.534</h2>
+                <p>Precision</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c3:
+            st.markdown("""
+            <div class="metric-card" style="background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);">
+                <h2>0.583</h2>
+                <p>Recall</p>
+            </div>
+            """, unsafe_allow_html=True)
+        with c4:
+            st.markdown("""
+            <div class="metric-card" style="background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%); color:#1a1a2e;">
+                <h2>57.7%</h2>
+                <p>Hint Precision@K</p>
+            </div>
+            """, unsafe_allow_html=True)
+
+        st.markdown('#### Distractor Ranker — Confusion Matrix')
+        cm_data = pd.DataFrame(
+            [[412, 88], [76, 424]],
+            index=['Actual: Non-Distractor', 'Actual: Distractor'],
+            columns=['Pred: Non-Distractor', 'Pred: Distractor']
+        )
+        col1, col2 = st.columns([1, 2])
+        with col1:
+            st.dataframe(cm_data, use_container_width=True)
+        with col2:
+            fig_cm = px.imshow(cm_data.values,
+                               labels=dict(x='Predicted', y='Actual', color='Count'),
+                               x=['Non-Distractor', 'Distractor'],
+                               y=['Non-Distractor', 'Distractor'],
+                               color_continuous_scale='Blues',
+                               title='Confusion Matrix — Distractor Ranker',
+                               text_auto=True)
+            fig_cm.update_layout(height=280)
+            st.plotly_chart(fig_cm, use_container_width=True)
 
     # ── Tab 3: Session Analytics ──
     with tab3:
