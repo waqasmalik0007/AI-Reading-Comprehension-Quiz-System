@@ -446,7 +446,9 @@ elif page == '💡 Hints':
         st.markdown(f'<div class="question-box"><strong>Question:</strong> {sample["question"]}</div>', unsafe_allow_html=True)
         st.markdown("")
 
-        hints, h_lat = engine.generate_hints(sample['article'], sample['question'], n_hints=3)
+        correct_ans_text = sample.get('correct_text') or sample['options'].get(sample.get('correct_answer', 'A'), '')
+        hints, h_lat = engine.generate_hints(sample['article'], sample['question'], n_hints=3,
+                                             correct_answer=correct_ans_text)
 
         hint_labels = ['🟢 Hint 1 — General Clue', '🟡 Hint 2 — More Specific', '🔴 Hint 3 — Near-Explicit']
         hint_classes = ['hint-card', 'hint-card-2', 'hint-card-3']
