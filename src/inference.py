@@ -318,11 +318,22 @@ class InferenceEngine:
             result['latencies']['distractor_gen'] = d_lat
 
             # Filter stopwords and too-short distractors
-            distractors = [
-                d for d in distractors
-                if len(d.split()) >= 2 and d.lower().strip() not in STOPWORDS
-                and len(d.strip()) > 4
-            ]
+            def _is_valid_distractor(d):
+                words = d.strip().split()
+                if len(words) < 1 or len(d.strip()) < 5:
+                    return False
+                if d.lower().strip() in STOPWORDS:
+                    return False
+                # Reject if last word is a stopword (e.g. "one of the")
+                if words[-1].lower() in STOPWORDS:
+                    return False
+                # Reject if more than half words are stopwords
+                sw_count = sum(1 for w in words if w.lower() in STOPWORDS)
+                if sw_count > len(words) / 2:
+                    return False
+                return True
+
+            distractors = [d for d in distractors if _is_valid_distractor(d)]
 
             # If not enough good distractors, extract noun phrases from article
             if len(distractors) < 3:
