@@ -249,7 +249,7 @@ class InferenceEngine:
         # Priority 1: all number phrases — pick first not excluded
         num_matches = re.findall(
             r'\b(age of \w+|\w+ hours?|\w+ years?|\w+ percent|\w+ million|\w+ thousand|'
-            r'\d+[\w\s]{0,10})\b', article, re.IGNORECASE
+            r'\d{4}|\d+)\b', article, re.IGNORECASE
         )
         for phrase in num_matches:
             phrase = phrase.strip()
@@ -295,8 +295,13 @@ class InferenceEngine:
 
         # Detect if answer is a person/proper noun
         if key_answer[0].isupper() and len(key_answer.split()) >= 2:
-            q = re.sub(re.escape(key_answer), 'who', s, flags=re.IGNORECASE, count=1)
-            return f"Who is referred to as '{key_answer}' in the passage?"
+            q_who = re.sub(re.escape(key_answer), 'who', s, flags=re.IGNORECASE, count=1)
+            q_blank = re.sub(re.escape(key_answer), '________', s, flags=re.IGNORECASE, count=1)
+            if q_who != s and q_who.lower().startswith('who'):
+                q_who = q_who.strip().rstrip('.').rstrip('?').rstrip('!')
+                return q_who[0].upper() + q_who[1:] + '?'
+            elif q_blank != s:
+                return f"Fill in the blank: {q_blank}"
 
         # Default — cloze style
         q = re.sub(re.escape(key_answer), '________', s, flags=re.IGNORECASE, count=1)
@@ -359,8 +364,12 @@ class InferenceEngine:
                 word_numbers = {
                     'one': 1, 'two': 2, 'three': 3, 'four': 4, 'five': 5,
                     'six': 6, 'seven': 7, 'eight': 8, 'nine': 9, 'ten': 10,
-                    'eleven': 11, 'twelve': 12, 'fifteen': 15, 'twenty': 20,
+                    'eleven': 11, 'twelve': 12, 'thirteen': 13, 'fourteen': 14,
+                    'fifteen': 15, 'sixteen': 16, 'seventeen': 17, 'eighteen': 18,
+                    'nineteen': 19, 'twenty': 20, 'twenty-one': 21, 'twenty-two': 22,
+                    'twenty-three': 23, 'twenty-four': 24, 'twenty-five': 25,
                     'thirty': 30, 'forty': 40, 'fifty': 50, 'sixty': 60,
+                    'seventy': 70, 'eighty': 80, 'ninety': 90,
                     'hundred': 100, 'thousand': 1000,
                 }
                 num_words_rev = {v: k for k, v in word_numbers.items()}
@@ -404,6 +413,91 @@ class InferenceEngine:
                                 alt_word = num_words_rev.get(v, str(v))
                                 alts.append(f'{alt_word} {unit}')
                         return alts[:3]
+
+                # Academic subject / department
+                ACADEMIC_SUBJECTS = [
+                    'Computer Science', 'Mathematics', 'Physics', 'Chemistry', 'Biology',
+                    'Electrical Engineering', 'Mechanical Engineering', 'Civil Engineering',
+                    'Software Engineering', 'Data Science', 'Artificial Intelligence',
+                    'Business Administration', 'Economics', 'Psychology', 'Sociology',
+                    'Political Science', 'Literature', 'History', 'Philosophy', 'Law',
+                    'Medicine', 'Architecture', 'Environmental Science', 'Statistics',
+                    'Information Technology', 'Accounting', 'Finance', 'Marketing',
+                ]
+                academic_kws = {
+                    'science', 'engineering', 'technology', 'mathematics', 'studies',
+                    'administration', 'economics', 'psychology', 'sociology', 'literature',
+                    'history', 'philosophy', 'medicine', 'architecture', 'statistics',
+                    'accounting', 'finance', 'marketing', 'physics', 'chemistry', 'biology',
+                }
+                if (answer in ACADEMIC_SUBJECTS or
+                        any(kw in answer.lower() for kw in academic_kws)):
+                    others = [s for s in ACADEMIC_SUBJECTS if s.lower() != answer.lower()]
+                    random.shuffle(others)
+                    return others[:3]
+
+                # University / institution
+                UNIVERSITIES = [
+                    'FAST University', 'NUST', 'LUMS', 'Karachi University',
+                    'Punjab University', 'Quaid-i-Azam University', 'IBA Karachi',
+                    'GCU Lahore', 'UET Lahore', 'COMSATS University',
+                    'Air University', 'Bahria University', 'NED University',
+                ]
+                if re.search(r'university|college|institute|school', answer, re.IGNORECASE):
+                    others = [u for u in UNIVERSITIES if u.lower() != answer.lower()]
+                    random.shuffle(others)
+                    return others[:3]
+
+                # City / place
+                CITIES = [
+                    'Lahore', 'Karachi', 'Islamabad', 'Peshawar', 'Quetta',
+                    'Multan', 'Faisalabad', 'Rawalpindi', 'Hyderabad', 'Sialkot',
+                    'London', 'New York', 'Paris', 'Dubai', 'Toronto',
+                ]
+                if answer in CITIES:
+                    others = [c for c in CITIES if c != answer]
+                    random.shuffle(others)
+                    return others[:3]
+
+                # Profession / job title
+                PROFESSIONS = [
+                    'engineer', 'doctor', 'teacher', 'scientist', 'professor',
+                    'researcher', 'developer', 'designer', 'lawyer', 'accountant',
+                    'manager', 'analyst', 'journalist', 'architect', 'pilot',
+                ]
+                if answer.lower() in PROFESSIONS:
+                    others = [p for p in PROFESSIONS if p.lower() != answer.lower()]
+                    random.shuffle(others)
+                    return others[:3]
+
+                # Adjective — antonym / synonym groups
+                ADJECTIVE_GROUPS = [
+                    {'naughty', 'mischievous', 'notorious', 'well-behaved', 'obedient', 'disciplined', 'troublesome'},
+                    {'good', 'bad', 'excellent', 'poor', 'great', 'terrible', 'outstanding', 'mediocre'},
+                    {'happy', 'sad', 'joyful', 'miserable', 'cheerful', 'gloomy', 'elated', 'depressed'},
+                    {'smart', 'clever', 'intelligent', 'foolish', 'brilliant', 'dumb', 'wise', 'stupid'},
+                    {'fast', 'slow', 'quick', 'rapid', 'sluggish', 'swift', 'leisurely', 'hasty'},
+                    {'big', 'small', 'large', 'tiny', 'huge', 'little', 'enormous', 'miniature'},
+                    {'old', 'young', 'ancient', 'modern', 'new', 'outdated', 'contemporary', 'elderly'},
+                    {'hard', 'easy', 'difficult', 'simple', 'tough', 'straightforward', 'challenging', 'complex'},
+                    {'rich', 'poor', 'wealthy', 'broke', 'affluent', 'impoverished', 'prosperous'},
+                    {'famous', 'unknown', 'popular', 'obscure', 'renowned', 'celebrated', 'infamous'},
+                ]
+                for group in ADJECTIVE_GROUPS:
+                    if answer.lower() in group:
+                        others = list(group - {answer.lower()})
+                        random.shuffle(others)
+                        return others[:3]
+
+                # Nationality / language
+                NATIONALITIES = [
+                    'Pakistani', 'Indian', 'American', 'British', 'Canadian',
+                    'Australian', 'Chinese', 'Japanese', 'German', 'French',
+                ]
+                if answer in NATIONALITIES:
+                    others = [n for n in NATIONALITIES if n != answer]
+                    random.shuffle(others)
+                    return others[:3]
 
                 return []
 
@@ -476,17 +570,31 @@ class InferenceEngine:
             options = {'A': correct_text}
             for i, d in enumerate(distractors[:3]):
                 options[chr(66 + i)] = d
-            # Fill missing options with passage sentences
-            sent_list = [s.strip() for s in article.split('.') if len(s.strip()) > 10]
-            idx = 0
+            # Fill missing options — prefer proper nouns from article, never sentence fragments
+            if len([k for k in ['B', 'C', 'D'] if k not in options]) > 0:
+                all_proper = re.findall(
+                    r'\b([A-Z][a-z]+(?: [A-Z][a-z]+)+)\b', article
+                )
+                all_proper = list(dict.fromkeys(
+                    p for p in all_proper
+                    if p.lower() != correct_text.lower() and p not in options.values()
+                ))
+                pn_idx = 0
+                for letter in ['B', 'C', 'D']:
+                    if letter not in options:
+                        while pn_idx < len(all_proper):
+                            cand = all_proper[pn_idx]
+                            pn_idx += 1
+                            if cand not in options.values():
+                                options[letter] = cand
+                                break
+            # Last resort: label-only placeholders (never sentence fragments)
+            fallback_labels = ['Option B', 'Option C', 'Option D']
+            fb_idx = 0
             for letter in ['B', 'C', 'D']:
                 if letter not in options:
-                    while idx < len(sent_list):
-                        candidate = ' '.join(sent_list[idx].split()[:6])
-                        idx += 1
-                        if candidate.lower() != correct_text.lower() and len(candidate) > 5:
-                            options[letter] = candidate
-                            break
+                    options[letter] = fallback_labels[fb_idx]
+                fb_idx += 1
             result['generated_options'] = options
             # We extracted the answer ourselves — A is always correct for custom text
             result['_custom_correct'] = 'A'
