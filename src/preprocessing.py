@@ -325,32 +325,58 @@ def score_sentences_for_hints(article, question, tfidf_vectorizer=None):
     return scored
 
 
-def generate_graduated_hints(article, question, tfidf_vectorizer=None, n_hints=3):
+def generate_graduated_hints(article, question, tfidf_vectorizer=None, n_hints=3,
+                             correct_answer=None):
     """
     Generate graduated hints (general → specific → near-explicit).
+
+    Hint 1 — Contextual clue   : relevant sentence from article, answer word absent
+    Hint 2 — Closer clue       : second most relevant sentence, answer word absent
+    Hint 3 — Near-explicit     : first letter + character/word count (never the answer)
     """
+    ans = (correct_answer or '').strip()
+    ans_lower = ans.lower()
+
+    # Score sentences by relevance to the question
     scored = score_sentences_for_hints(article, question, tfidf_vectorizer)
 
-    if len(scored) < n_hints:
-        return [s[0] for s in scored]
-
-    # Hint 1: most general (lowest relevant score among top half)
-    top_half = scored[:max(len(scored) // 2, n_hints)]
+    # Keep only sentences that do NOT contain the answer word
+    safe = [(s, sc) for s, sc in scored if ans_lower not in s.lower()] if ans else scored
+    if not safe:
+        safe = scored  # fallback: every sentence has the answer, use best available
 
     hints = []
-    # Hint 3 (near-explicit) = most relevant sentence
-    hints_pool = [s for s in top_half]
 
-    if len(hints_pool) >= 3:
-        hints = [
-            hints_pool[-1][0],   # Hint 1: most general (least relevant in top half)
-            hints_pool[len(hints_pool) // 2][0],  # Hint 2: medium
-            hints_pool[0][0],    # Hint 3: most specific (most relevant)
-        ]
+    # ── Hint 1: Best relevant sentence without the answer ────────
+    if safe:
+        hints.append(safe[0][0])
     else:
-        hints = [s[0] for s in hints_pool]
+        hints.append("Re-read the passage and focus on the surrounding context.")
 
-    return hints
+    # ── Hint 2: Second best relevant sentence (different from H1) ─
+    if len(safe) > 1:
+        hints.append(safe[1][0])
+    elif safe:
+        hints.append(safe[0][0])
+    else:
+        hints.append("Look carefully at every sentence — the clue is nearby.")
+
+    # ── Hint 3: Near-explicit — first letter + length ────────────
+    if ans:
+        first = ans[0].upper()
+        nwords = len(ans.split())
+        nchars = len(ans)
+        if nwords > 1:
+            hint3 = (f"The answer is {nwords} words long and starts with "
+                     f"the letter '{first}'.")
+        else:
+            hint3 = (f"The answer has {nchars} character(s) and starts with "
+                     f"'{first}'.")
+        hints.append(hint3)
+    elif len(safe) > 2:
+        hints.append(safe[2][0])
+
+    return hints[:n_hints]
 
 
 # ──────────────────────────────────────────────────────────────

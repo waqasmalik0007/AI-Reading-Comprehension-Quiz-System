@@ -223,10 +223,11 @@ class InferenceEngine:
         latency = time.time() - start_time
         return distractors, latency
 
-    def generate_hints(self, article, question, n_hints=3):
+    def generate_hints(self, article, question, n_hints=3, correct_answer=None):
         """Generate graduated hints."""
         start_time = time.time()
-        hints = generate_graduated_hints(article, question, self.tfidf_vec, n_hints)
+        hints = generate_graduated_hints(article, question, self.tfidf_vec, n_hints,
+                                         correct_answer=correct_answer)
         latency = time.time() - start_time
         return hints, latency
 
@@ -607,7 +608,8 @@ class InferenceEngine:
                 result['ranked_options'] = ranked
                 result['predicted_answer'] = 'A'
                 result['latencies']['ranking'] = rank_lat
-                hints, h_lat = self.generate_hints(article, question)
+                hints, h_lat = self.generate_hints(article, question,
+                                                     correct_answer=correct_text)
                 result['hints'] = hints
                 result['latencies']['hints'] = h_lat
                 result['total_latency'] = sum(result['latencies'].values())
@@ -703,7 +705,8 @@ class InferenceEngine:
         result['latencies']['ranking'] = rank_lat
 
         # ── Step 4: Hints ──
-        hints, h_lat = self.generate_hints(article, question)
+        hints, h_lat = self.generate_hints(article, question,
+                                           correct_answer=key_answer)
         result['hints'] = hints
         result['latencies']['hints'] = h_lat
 
