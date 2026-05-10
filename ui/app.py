@@ -1377,10 +1377,10 @@ elif st.session_state.page == 'DASHBOARD':
             st.session_state.latencies = []
             st.rerun()
 
+
         st.markdown(f"""
         <div style="margin-top:32px; text-align:center; font-family:'Share Tech Mono',monospace; font-size:0.72rem; letter-spacing:1.5px; color:{TEXT_SECONDARY};">
             AI LAB PROJECT — SPRING 2026 &nbsp;|&nbsp; FAST NUCES ISLAMABAD
         </div>
         """, unsafe_allow_html=True)
-
 st.markdown('</div>', unsafe_allow_html=True)  # close rc-page
