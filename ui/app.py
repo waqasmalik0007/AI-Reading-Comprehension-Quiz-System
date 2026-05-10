@@ -268,9 +268,9 @@ html, body, [data-testid="stAppViewContainer"] {{
 
 /* ── Page Wrapper ── */
 .rc-page {{
-   padding-top: 70px !important;
+   padding-top: 0px !important;
     padding: 0px 40px 60px;
-    min-height: calc(100vh - 56px);
+    
 }}
 
 /* ── Page Title ── */
@@ -819,19 +819,19 @@ st.markdown(f"""
 
 _sp, _b1, _b2, _b3, _b4, _bt = st.columns([1.3, 0.4, 0.4, 0.4, 0.7, 0.6])
 with _b1:
-    if st.button('ARTICLE',   key='_nb_article', use_container_width=True):
+    if st.button('ARTICLE',   key='_nb_article', width='stretch'):
         st.session_state.page = 'ARTICLE';   st.rerun()
 with _b2:
-    if st.button('QUIZ',      key='_nb_quiz',    use_container_width=True):
+    if st.button('QUIZ',      key='_nb_quiz',    width='stretch'):
         st.session_state.page = 'QUIZ';      st.rerun()
 with _b3:
-    if st.button('HINTS',     key='_nb_hints',   use_container_width=True):
+    if st.button('HINTS',     key='_nb_hints',   width='stretch'):
         st.session_state.page = 'HINTS';     st.rerun()
 with _b4:
-    if st.button('DASHBOARD', key='_nb_dash',    use_container_width=True):
+    if st.button('DASHBOARD', key='_nb_dash',    width='stretch'):
         st.session_state.page = 'DASHBOARD'; st.rerun()
 with _bt:
-    if st.button('THEME',     key='_nb_theme',   use_container_width=True):
+    if st.button('THEME',     key='_nb_theme',   width='stretch'):
         st.session_state.theme = 'light' if is_dark else 'dark'
         st.session_state.theme_toast = True
         st.rerun()
@@ -878,14 +878,14 @@ if st.session_state.page == 'ARTICLE':
         )
 
         st.markdown('<br>', unsafe_allow_html=True)
-        gen_btn = st.button('▶  GENERATE QUIZ', type='primary', use_container_width=True, key='gen_quiz')
+        gen_btn = st.button('▶  GENERATE QUIZ', type='primary', width='stretch', key='gen_quiz')
         st.markdown('</div>', unsafe_allow_html=True)
 
     with col_side:
         st.markdown(f'<div class="rc-panel">', unsafe_allow_html=True)
         st.markdown('<div class="rc-panel-label">QUICK LOAD</div>', unsafe_allow_html=True)
         st.markdown('<div class="load-btn-wrap">', unsafe_allow_html=True)
-        load_btn = st.button('⇄  LOAD SAMPLE', use_container_width=True, key='load_sample')
+        load_btn = st.button('⇄  LOAD SAMPLE', width='stretch', key='load_sample')
         st.markdown('</div>', unsafe_allow_html=True)
 
         if st.session_state.current_sample:
@@ -1010,10 +1010,10 @@ elif st.session_state.page == 'QUIZ':
 
         col1, col2 = st.columns(2)
         with col1:
-            check_btn = st.button('✅  CHECK ANSWER', type='primary', use_container_width=True,
+            check_btn = st.button('✅  CHECK ANSWER', type='primary', width='stretch',
                                    disabled=(selected is None), key='check_ans')
         with col2:
-            next_btn = st.button('↻  NEXT QUESTION', use_container_width=True, key='next_q')
+            next_btn = st.button('↻  NEXT QUESTION', width='stretch', key='next_q')
 
         if next_btn:
             if engine and st.session_state.current_sample:
@@ -1158,7 +1158,7 @@ elif st.session_state.page == 'HINTS':
         with col1:
             if st.session_state.hints_revealed < 3:
                 if st.button(f'🔓  REVEAL HINT {st.session_state.hints_revealed + 1}',
-                             type='primary', use_container_width=True, key='reveal_hint'):
+                             type='primary', width='stretch', key='reveal_hint'):
                     st.session_state.hints_revealed += 1
                     st.rerun()
             else:
@@ -1167,7 +1167,7 @@ elif st.session_state.page == 'HINTS':
 
         with col2:
             if st.session_state.hints_revealed >= 3:
-                if st.button('👁  REVEAL ANSWER', type='secondary', use_container_width=True, key='reveal_ans'):
+                if st.button('👁  REVEAL ANSWER', type='secondary', width='stretch', key='reveal_ans'):
                     st.session_state.show_answer = True
 
         if st.session_state.show_answer:
@@ -1239,7 +1239,7 @@ elif st.session_state.page == 'DASHBOARD':
                 xaxis=dict(gridcolor=BORDER_COLOR),
                 yaxis=dict(gridcolor=BORDER_COLOR),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
         else:
             # Demo chart
             demo_df = pd.DataFrame({
@@ -1258,7 +1258,7 @@ elif st.session_state.page == 'DASHBOARD':
                 xaxis=dict(gridcolor=BORDER_COLOR),
                 yaxis=dict(gridcolor=BORDER_COLOR),
             )
-            st.plotly_chart(fig, use_container_width=True)
+            st.plotly_chart(fig, width='stretch')
 
     # ── Model B ──
     with tab2:
@@ -1310,7 +1310,7 @@ elif st.session_state.page == 'DASHBOARD':
             font_color=TEXT_PRIMARY,
             height=280,
         )
-        st.plotly_chart(fig_cm, use_container_width=True)
+        st.plotly_chart(fig_cm, width='stretch')
 
     # ── Session Analytics ──
     with tab3:
@@ -1349,9 +1349,9 @@ elif st.session_state.page == 'DASHBOARD':
                     yaxis=dict(gridcolor=BORDER_COLOR),
                     title_font_size=11,
                 )
-                st.plotly_chart(fig_lat, use_container_width=True)
+                st.plotly_chart(fig_lat, width='stretch')
 
-            st.dataframe(results_df, use_container_width=True)
+            st.dataframe(results_df, width='stretch')
         else:
             st.info('No quiz attempts yet. Go to the QUIZ tab to start.')
 
@@ -1365,17 +1365,17 @@ elif st.session_state.page == 'DASHBOARD':
             st.download_button(
                 '📥  DOWNLOAD SESSION RESULTS (CSV)',
                 csv, 'session_results.csv', 'text/csv',
-                use_container_width=True
+                width='stretch'
             )
         else:
             st.info('No data to export yet.')
 
         st.divider()
 
-        if st.button('🗑  CLEAR SESSION DATA', use_container_width=True, key='clear_session'):
+        if st.button('🗑  CLEAR SESSION DATA', width='stretch', key='clear_session'):
             st.session_state.session_results = []
             st.session_state.latencies = []
-        st.rerun()
+            st.rerun()
 
         st.markdown(f"""
         <div style="margin-top:32px; text-align:center; font-family:'Share Tech Mono',monospace; font-size:0.72rem; letter-spacing:1.5px; color:{TEXT_SECONDARY};">
