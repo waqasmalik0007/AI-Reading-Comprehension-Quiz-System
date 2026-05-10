@@ -1375,7 +1375,7 @@ elif st.session_state.page == 'DASHBOARD':
         if st.button('🗑  CLEAR SESSION DATA', use_container_width=True, key='clear_session'):
             st.session_state.session_results = []
             st.session_state.latencies = []
-         st.rerun()
+        st.rerun()
 
         st.markdown(f"""
         <div style="margin-top:32px; text-align:center; font-family:'Share Tech Mono',monospace; font-size:0.72rem; letter-spacing:1.5px; color:{TEXT_SECONDARY};">
